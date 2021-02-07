@@ -34,7 +34,7 @@ def findMatches(folder: str, text: str) -> list:
     #print(absPath)
     html_text = text_file.read().lower()
     if html_text.rfind(text) != -1:
-      print("[MATCH] {}".format(fname))
+      #print("[MATCH] {}".format(fname))
       uri = pathlib.Path(absPath).as_uri()
       mList.append(ListData(fname, uri))
     text_file.close()
@@ -55,19 +55,23 @@ class Handler:
     if len(text) == 0 or text.count(' ') == len(text):
       return
     print("Trying to search '{}'...".format(text))
-    matchList = findMatches(folder, text)
-    self.parent.updateListbox(matchList)
+    matches = findMatches(folder, text)
+    self.parent.updateListbox(matches)
   
   def entryKeyPress(self, widget, ev, data=None):
     if ev.keyval == 65293 or ev.keyval == Gdk.KEY_KP_Enter:
       print('Enter')
       self.onSearch()
 
+  def onRowSelected(self, widget, row, *args):
+    self.parent.updateWeb(row.uri)
+
 class Window:
   def __init__(self):
     self.builder = Gtk.Builder()
     self.builder.add_from_file("ui.glade")
-    self.builder.connect_signals(Handler(self))
+    handler = Handler(self)
+    self.builder.connect_signals(handler)
     self.window = self.builder.get_object("window")
     self.scroll = self.builder.get_object("scroll")
     self.entry = self.builder.get_object("entrySearch")
@@ -75,13 +79,17 @@ class Window:
     self.dirChooser = self.builder.get_object("dirChooser")
     self.paned.set_position(int(self.window.get_size()[0] * 0.3))
     self.webview = WebKit2.WebView()
-    self.webview.load_uri('file:///home/yukatan/Документы/universiada database/_task1.html')
+    #self.webview.load_uri('file:///home/yukatan/Документы/universiada database/_task1.html')
     self.scroll.add(self.webview)
-    self.listbox = self.builder.get_object("listbox")
-    self.fillList()
+    self.scrollList = self.builder.get_object("scrollList")
+    self.listbox = Gtk.ListBox()
+    self.listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
+    self.listbox.connect("row-selected", handler.onRowSelected)
+    self.scrollList.add(self.listbox)
+    #self.fillList()
 
-    self.dirChooser.set_filename('/home/yukatan/Документы/universiada database/')
-    self.entry.set_text('коши')
+    #self.dirChooser.set_filename('/home/yukatan/Документы/universiada database/')
+    #self.entry.set_text('коши')
     self.window.show_all()
     Gtk.main()
 
@@ -89,9 +97,7 @@ class Window:
     print("Total matches:", len(matches))
     for row in self.listbox:
       self.listbox.remove(row)
-    print("Listbox cleared.")
     for match in matches:
-      print('meow')
       row = Gtk.ListBoxRow()
       hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=20)
       btest = Gtk.Label.new("<b>{}</b>".format(match.filename))
@@ -102,9 +108,12 @@ class Window:
       hbox.pack_start(btest, False, True, 0)
       hbox.pack_end(blabel, True, True, 0)
       row.add(hbox)
+      row.uri = match.path
       self.listbox.add(row)
     self.listbox.show_all()
-    print('updated.')
+
+  def updateWeb(self, uri: str):
+    self.webview.load_uri(uri)
 
   def fillList(self):
     for i in range(10):
